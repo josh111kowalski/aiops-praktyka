@@ -5,7 +5,19 @@
     "ask":   ["Bash(kubectl set:*)", "Bash(kubectl patch:*)", "Bash(kubectl edit:*)",
               "Bash(kubectl rollout:*)", "Bash(kubectl apply:*)"],
     "deny":  ["Bash(kubectl get secret:*)", "Bash(kubectl get secrets:*)", "Bash(*secret*)",
-              "Bash(kubectl delete:*)", "Bash(kubectl exec:*)", "Read(./**/.env)", "Read(./**/*.tfstate)"
+              "Bash(kubectl delete:*)", "Bash(kubectl exec:*)", "Read(./**/.env)", "Read(./**/*.tfstate)",
+              "Bash(gh pr review:*)", "Bash(gh pr close:*)"
 ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/bramka-merge.sh\"" }
+        ]
+      }
+    ]
   }
+
 }
