@@ -151,6 +151,7 @@ jobs:
           helm upgrade kantyna app/deploy/helm/kantyna \
             --namespace "$NAMESPACE" \
             --reuse-values \
+            --force-conflicts \
             --set "global.imageRegistry=$REGISTRY" \
             --set "global.imageTag=$TAG"
 
