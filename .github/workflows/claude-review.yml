@@ -1,0 +1,55 @@
+name: Claude review IaC
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "infra/**"
+
+permissions: {}
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - id: claude
+        uses: anthropics/claude-code-action@400f8c3b3562dd02bfa65aba481641b97dbafe23 # v1.0.241
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Zrób review zmian w infra/ w tym pull requeście. Jeśli w repo jest plik REVIEW.md, stosuj jego reguły.
+            Uwagi do konkretnych linii dodaj jako komentarze inline, podsumowanie jako jeden komentarz w PR.
+            Na koniec zwróć werdykt: BLOKUJE, jeśli PR ma problem, który musi zostać poprawiony przed merge,
+            albo OK w przeciwnym razie, i jedno zdanie uzasadnienia.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read"
+            --max-turns 20
+            --json-schema '{"type":"object","properties":{"werdykt":{"type":"string","enum":["BLOKUJE","OK"]},"powod":{"type":"string"}},"required":["werdykt","powod"]}'
+
+      # Bramka: werdykt jako pole JSON, nie tekst. Brak werdyktu też blokuje (fail closed)
+      - name: Werdykt recenzenta
+        env:
+          WYNIK: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          werdykt=$(jq -r '.werdykt // empty' <<<"$WYNIK" 2>/dev/null)
+          powod=$(jq -r '.powod // empty' <<<"$WYNIK" 2>/dev/null)
+          echo "Werdykt: ${werdykt:-brak} · ${powod}"
+          [ -n "$werdykt" ] || { echo "::error::Brak werdyktu recenzenta"; exit 1; }
+          [ "$werdykt" = "OK" ] || { echo "::error::Recenzent zablokował PR: $powod"; exit 1; }
