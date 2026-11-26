@@ -1,0 +1,112 @@
+# Deployment orders-api — wersja "produkcyjna" wygenerowana z ogólnego promptu (lab01b, krok A1).
+# Wartości oznaczone "# ZAŁOŻENIE" NIE wynikają z promptu ani z repo — zostały zgadnięte.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-api
+  labels:
+    app.kubernetes.io/name: orders-api
+    app.kubernetes.io/part-of: kantyna
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orders-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: orders-api
+        app.kubernetes.io/part-of: kantyna
+        app.kubernetes.io/component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"        # ZAŁOŻENIE
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: orders-api      # ZAŁOŻENIE: SA o tej nazwie istnieje
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001                  # ZAŁOŻENIE: obraz działa jako nie-root
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: orders-api
+      containers:
+        - name: orders-api
+          image: ghcr.io/kantyna/orders-api:1.0.0   # ZAŁOŻENIE: rejestr i tag zgadnięte
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000                    # ZAŁOŻENIE
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              value: postgres                        # ZAŁOŻENIE
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: kantyna                         # ZAŁOŻENIE
+            - name: DB_USER
+              value: kantyna                         # ZAŁOŻENIE
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: orders-api-db                # ZAŁOŻENIE: nazwa Secretu zgadnięta
+                  key: password                      # ZAŁOŻENIE
+            - name: PAYMENTS_URL
+              value: http://payments:8080            # ZAŁOŻENIE
+            - name: LOG_LEVEL
+              value: INFO
+          resources:
+            requests:
+              cpu: 250m                              # ZAŁOŻENIE
+              memory: 256Mi                          # ZAŁOŻENIE
+            limits:
+              memory: 512Mi                          # ZAŁOŻENIE
+          startupProbe:
+            httpGet:
+              path: /healthz                         # ZAŁOŻENIE
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /ready                           # ZAŁOŻENIE
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz                         # ZAŁOŻENIE
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
