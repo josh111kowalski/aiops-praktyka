@@ -8,7 +8,15 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    github = {
+      source  = "integrations/github"
+      version = "~> 6.0"
+    }
   }
+}
+
+provider "github" {
+  owner = local.owner
 }
 
 variable "github_repo" {
@@ -35,12 +43,62 @@ variable "eks_cluster_arn" {
   type = string
 }
 
+variable "release_reviewer_team_ids" {
+  description = "ID zespołów GitHub, które zatwierdzają wdrożenia z release/* (gh api orgs/<org>/teams/<slug> -q .id)"
+  type        = list(number)
+  default     = []
+}
+
+variable "release_reviewer_user_ids" {
+  description = "ID użytkowników GitHub, którzy zatwierdzają wdrożenia z release/* (gh api users/<login> -q .id)"
+  type        = list(number)
+  default     = []
+}
+
 locals {
   owner = split("/", var.github_repo)[0]
   repo  = split("/", var.github_repo)[1]
 
-  # Gałęzie, z których wolno wdrażać. Release'y budujemy z release/*.
-  deploy_refs = ["main", "release/*"]
+  # Release'y z release/* NIE przechodzą po samym ref: gałąź release/<cokolwiek> może
+  # utworzyć każdy z prawem zapisu. Wdrożenie release'u idzie przez environment
+  # "release" (wymagani reviewerzy + tylko gałęzie release/*), a trust policy
+  # akceptuje wyłącznie sub tego environmentu — token powstaje dopiero po akceptacji.
+  release_environment = "release"
+
+  sub_prefixes = [
+    "repo:${var.github_repo}",
+    "repo:${local.owner}@${var.github_owner_id}/${local.repo}@${var.github_repo_id}",
+  ]
+}
+
+resource "github_repository_environment" "release" {
+  repository          = local.repo
+  environment         = local.release_environment
+  prevent_self_review = true
+  can_admins_bypass   = false
+
+  reviewers {
+    teams = var.release_reviewer_team_ids
+    users = var.release_reviewer_user_ids
+  }
+
+  deployment_branch_policy {
+    protected_branches     = false
+    custom_branch_policies = true
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(var.release_reviewer_team_ids) + length(var.release_reviewer_user_ids) > 0
+      error_message = "Environment release musi mieć co najmniej jednego reviewera — bez tego każdy z prawem zapisu przejmie rolę kantyna-ci."
+    }
+  }
+}
+
+resource "github_repository_environment_deployment_policy" "release" {
+  repository     = local.repo
+  environment    = github_repository_environment.release.environment
+  branch_pattern = "release/*"
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -63,15 +121,19 @@ data "aws_iam_policy_document" "ci_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Tylko gałęzie z local.deploy_refs, w obu formatach sub: klasycznym (nazwa repo)
-    # i z niezmiennymi ID. Żadnego ":*" — to wpuściłoby PR-y, tagi i dowolne gałęzie.
+    # Dokładnie dwa źródła, w obu formatach sub (klasycznym i z niezmiennymi ID):
+    #  - gałąź main (ref),
+    #  - environment "release" (z reviewerami, ograniczony do release/*).
+    # StringEquals, bez wildcardów — żaden wzorzec gałęzi nie wpuszcza tokenu.
     condition {
-      test     = "StringLike"
+      test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values = concat(
-        [for ref in local.deploy_refs : "repo:${var.github_repo}:ref:refs/heads/${ref}"],
-        [for ref in local.deploy_refs : "repo:${local.owner}@${var.github_owner_id}/${local.repo}@${var.github_repo_id}:ref:refs/heads/${ref}"],
-      )
+      values = flatten([
+        for p in local.sub_prefixes : [
+          "${p}:ref:refs/heads/main",
+          "${p}:environment:${local.release_environment}",
+        ]
+      ])
     }
   }
 }
