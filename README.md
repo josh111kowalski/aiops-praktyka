@@ -34,7 +34,7 @@ git push                                    # wypchnij do swojego forka
 | Dzień | Temat | Laby |
 |---|---|---|
 | Dzień 1 | Fundamenty i diagnostyka | [lab01 — Rozgrzewka w Claude Code](labs/lab01-rozgrzewka-claude-code/) · [lab01b — Prompt, który da się sprawdzić](labs/lab01b-prompty/) · [lab02 — Debugging z AI](labs/lab02-debugging-z-ai/) |
-| Dzień 2 | Zmiana, pipeline'y i infrastruktura | [lab03 — Pipeline z AI](labs/lab03-pipeline-z-ai/) · [lab03b — Skill: przegląd PR-a z terminala](labs/lab03b-skill-przeglad-pr/) · [lab04 — IaC z AI](labs/lab04-iac-z-ai/) |
+| Dzień 2 | Zmiana, pipeline'y i infrastruktura | [lab03c — Recenzent Claude w pipeline](labs/lab03c-review-iac-w-pipeline/) · [lab03 — Pipeline z AI](labs/lab03-pipeline-z-ai/) · [lab03b — Skill: przegląd PR-a z terminala](labs/lab03b-skill-przeglad-pr/) · [lab04 — IaC z AI](labs/lab04-iac-z-ai/) |
 | Dzień 3 | Observability, automatyzacja i bezpieczeństwo | [lab05 — Observability](labs/lab05-observability/) · [lab06 — Agent z runbookiem](labs/lab06-agent-runbook/) · [lab06b — Trivy z AI](labs/lab06b-trivy-z-ai/) · [lab07 — Capstone](labs/lab07-capstone/) |
 
 ## Zasady

@@ -1,6 +1,6 @@
 # Claude Code — bezpieczeństwo i uprawnienia agenta
 
-Diagram architektury: [`architektura.html`](architektura.html). Porównanie wszystkich warstw, które ograniczają agenta: od `CLAUDE.md`, przez tryby uprawnień i `settings.json` (allow/ask/deny), hooki i sandbox, po kontener i dedykowany runner.
+Diagram architektury: [`architektura.html`](architektura.html). Interaktywny przebieg hooków (jedno wywołanie narzędzia i cykl sesji): [`hooki.html`](hooki.html). Porównanie wszystkich warstw, które ograniczają agenta: od `CLAUDE.md`, przez tryby uprawnień i `settings.json` (allow/ask/deny), hooki i sandbox, po kontener i dedykowany runner.
 - **Dzień 1, temat 2:** główne miejsce, przy demie z regułami `deny` i sandboksem.
 - **Dzień 3, temat 3:** krótki powrót, hooki i izolacja jako bariery dla agenta działającego bez człowieka.
 

@@ -1,0 +1,2 @@
+# Skrypty z końcami linii LF także po klonie na Windowsie (core.autocrlf=true)
+*.sh text eol=lf

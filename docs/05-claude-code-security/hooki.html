@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hooki w Claude Code — jak to działa</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --fg: #1d232b; --muted: #5d6673; --card: #ffffff; --border: #c9ced6;
+    --accent: #c4501a; --accent-soft: #fbe9df;
+    --ok: #2f6f4f; --ok-soft: #e3f0e8;
+    --block: #b3261e; --block-soft: #fbe4e1;
+    --wait: #9a6700; --wait-soft: #fff4d6;
+    --code: #eef0f3;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171c; --fg: #e6e8eb; --muted: #9aa3ad; --card: #1d2229; --border: #3a424d;
+      --accent: #ff8f57; --accent-soft: #3a2418;
+      --ok: #7cc4a0; --ok-soft: #1c2e25;
+      --block: #ff8a80; --block-soft: #3a1d1b;
+      --wait: #f0c35a; --wait-soft: #3a3118;
+      --code: #0f1217;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171c; --fg: #e6e8eb; --muted: #9aa3ad; --card: #1d2229; --border: #3a424d;
+    --accent: #ff8f57; --accent-soft: #3a2418;
+    --ok: #7cc4a0; --ok-soft: #1c2e25;
+    --block: #ff8a80; --block-soft: #3a1d1b;
+    --wait: #f0c35a; --wait-soft: #3a3118;
+    --code: #0f1217;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 0 72px; }
+  nav { font-size: 14px; color: var(--muted); margin-bottom: 20px; }
+  nav a { color: var(--muted); }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; text-wrap: balance; }
+  h2 { font-size: 21px; margin: 52px 0 6px; text-wrap: balance; }
+  .sub { color: var(--muted); margin: 0 0 18px; max-width: 66ch; }
+  p { max-width: 66ch; margin: 0 0 12px; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13.5px; }
+  code { background: var(--code); padding: 1px 6px; border-radius: 5px; }
+  pre { background: var(--code); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; overflow-x: auto; margin: 0; }
+
+  /* --- scenario picker --- */
+  .picker { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 22px; }
+  .picker button {
+    font: inherit; font-size: 14px; color: var(--fg); background: var(--card);
+    border: 1px solid var(--border); border-radius: 999px; padding: 8px 14px; cursor: pointer;
+  }
+  .picker button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+  .picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* --- flow --- */
+  .stage {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 28px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px;
+    align-items: start;
+  }
+  .cmd { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .cmdline { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 15px; background: var(--code); border-radius: 8px; padding: 10px 12px; word-break: break-all; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  .legend .l-ok::before { background: var(--ok); }
+  .legend .l-block::before { background: var(--block); }
+  .legend .l-wait::before { background: var(--wait); }
+  .legend .l-skip::before { background: var(--border); }
+
+  ol.flow { list-style: none; margin: 0; padding: 0; position: relative; }
+  ol.flow li {
+    position: relative; padding: 0 0 14px 46px; min-height: 58px;
+    transition: opacity .25s ease;
+  }
+  ol.flow li:last-child { padding-bottom: 0; }
+  ol.flow li::before {
+    content: ""; position: absolute; left: 14px; top: 30px; bottom: 0; width: 2px; background: var(--border);
+  }
+  ol.flow li:last-child::before { display: none; }
+  .dot {
+    position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; font-size: 13px;
+    background: var(--card); border: 2px solid var(--border); color: var(--muted);
+  }
+  .step-title { font-weight: 600; margin-top: 4px; }
+  .step-text { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  li.ok .dot { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); }
+  li.block .dot { border-color: var(--block); color: var(--block); background: var(--block-soft); }
+  li.wait .dot { border-color: var(--wait); color: var(--wait); background: var(--wait-soft); }
+  li.block .step-title { color: var(--block); }
+  li.wait .step-title { color: var(--wait); }
+  li.skip { opacity: .45; }
+  li.skip .dot { border-style: dashed; }
+  li.current .dot { box-shadow: 0 0 0 4px var(--accent-soft); }
+
+  .verdict {
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px; font-size: 14.5px;
+    border: 1px solid var(--border); background: var(--bg);
+  }
+  .verdict.block { border-color: var(--block); background: var(--block-soft); }
+  .verdict.wait { border-color: var(--wait); background: var(--wait-soft); }
+  .verdict.ok { border-color: var(--ok); background: var(--ok-soft); }
+  .verdict strong { display: block; margin-bottom: 2px; }
+
+  /* --- session timeline --- */
+  .events { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .events button {
+    font: inherit; font-size: 14px; background: var(--card); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+  }
+  .events button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .events button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .detail {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px;
+    min-height: 120px;
+  }
+  .detail h3 { margin: 0 0 6px; font-size: 17px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color: var(--accent); }
+  .detail p { margin: 0 0 8px; }
+  .detail .when { font-size: 13px; color: var(--muted); }
+
+  /* --- cards --- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .card p { font-size: 14px; color: var(--muted); margin: 0; }
+  .card code { font-size: 12.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+
+  .ex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .ex-grid > div { min-width: 0; }
+  .ex-grid pre { font-size: 12.5px; }
+
+  .note { font-size: 14px; color: var(--muted); margin-top: 16px; max-width: 70ch; }
+
+  @media (max-width: 760px) {
+    .stage { grid-template-columns: minmax(0, 1fr); padding: 18px; }
+    h1 { font-size: 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    ol.flow li { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <nav><a href="claude-code-security.md">← Claude Code — bezpieczeństwo i uprawnienia</a></nav>
+
+  <h1>Hooki w Claude Code: jak to działa</h1>
+  <p class="sub">Hook to Twój skrypt, który Claude Code uruchamia sam w określonym momencie sesji. Model go nie wywołuje i nie może go pominąć. Poniżej przebieg jednego wywołania narzędzia i całego cyklu sesji. Wybierz scenariusz, żeby zobaczyć, co się dzieje krok po kroku.</p>
+
+  <h2>1. Jedno wywołanie narzędzia</h2>
+  <p class="sub">Claude chce uruchomić narzędzie, np. Bash. Wybierz komendę:</p>
+
+  <div class="picker" role="group" aria-label="Scenariusz">
+    <button type="button" data-scenario="read" aria-pressed="true">Odczyt: kubectl get pods</button>
+    <button type="button" data-scenario="block" aria-pressed="false">Blokada: terraform destroy</button>
+    <button type="button" data-scenario="ask" aria-pressed="false">Pytanie: rm -rf build</button>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div class="cmd">Komenda, którą chce wykonać Claude</div>
+      <div class="cmdline" id="cmdline">kubectl get pods -n prod</div>
+
+      <div class="verdict ok" id="verdict" role="status" aria-live="polite">
+        <strong id="verdict-title">Wykonane</strong>
+        <span id="verdict-text">Wynik wraca do Claude.</span>
+      </div>
+
+      <div class="legend" aria-hidden="true">
+        <span class="l-ok">przeszło</span>
+        <span class="l-wait">czeka na Ciebie</span>
+        <span class="l-block">zablokowane</span>
+        <span class="l-skip">pominięte</span>
+      </div>
+    </div>
+
+    <ol class="flow" id="flow"></ol>
+  </div>
+
+  <p class="note">Kolejność na schemacie odpowiada dokumentacji: hook <code>PreToolUse</code> sprawdza wywołanie jako pierwszy. Jego blokada wygrywa z <code>allow</code>, ale jego zgoda nie zdejmuje reguły <code>deny</code>. Przy zmianach wersji Claude Code zweryfikuj tę kolejność w aktualnych dokumentach.</p>
+
+  <h2>2. Co hook dostaje i co zwraca</h2>
+  <p class="sub">Claude Code przekazuje hookowi dane zdarzenia przez stdin w formacie JSON. Hook odpowiada kodem wyjścia.</p>
+
+  <div class="ex-grid">
+    <div>
+      <div class="cmd">stdin (uproszczony przykład)</div>
+      <pre><code>{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "terraform destroy -auto-approve"
+  }
+}</code></pre>
+    </div>
+    <div>
+      <div class="cmd">skrypt hooka: <code>block-danger.sh</code></div>
+      <pre><code>#!/bin/bash
+CMD=$(jq -r '.tool_input.command')
+if echo "$CMD" | grep -qE 'terraform destroy'; then
+  echo "Zablokowane: wymaga ręcznego wykonania." &gt;&amp;2
+  exit 2
+fi
+exit 0</code></pre>
+    </div>
+  </div>
+
+  <table style="margin-top:16px">
+    <thead><tr><th>Kod wyjścia</th><th>Znaczenie</th><th>Co widzi Claude</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>Przepuść</td><td>Wywołanie idzie dalej przez reguły</td></tr>
+      <tr><td><code>2</code></td><td>Zablokuj</td><td>Treść stderr jako powód; narzędzie się nie uruchamia</td></tr>
+      <tr><td>inny</td><td>Błąd hooka</td><td>Zależy od zdarzenia, sprawdź dokumentację</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Cykl całej sesji</h2>
+  <p class="sub">Hooki działają nie tylko wokół narzędzi. Kliknij zdarzenie, żeby zobaczyć, kiedy się odpala.</p>
+
+  <div class="events" id="events" role="group" aria-label="Zdarzenia sesji"></div>
+  <div class="detail" id="detail" aria-live="polite"></div>
+
+  <h2>4. Gdzie to się przydaje w DevOps</h2>
+  <div class="grid">
+    <div class="card"><h3>Blokada destrukcji</h3><p>PreToolUse: <code>terraform destroy</code>, <code>kubectl delete ns</code> wymagają ręcznego wykonania.</p></div>
+    <div class="card"><h3>Lint po zmianie</h3><p>PostToolUse: po edycji <code>.tf</code> leci <code>terraform fmt</code> i <code>tflint</code>.</p></div>
+    <div class="card"><h3>Filtr sekretów</h3><p>UserPromptSubmit: blokuje prompt z kluczem AWS albo kluczem prywatnym.</p></div>
+    <div class="card"><h3>Kontekst startowy</h3><p>SessionStart: wypisuje aktywny klaster, branch i wersje narzędzi.</p></div>
+    <div class="card"><h3>Powiadomienie</h3><p>Notification: gdy Claude czeka na zgodę przy długim playbooku, wysyła wiadomość na Slacka.</p></div>
+    <div class="card"><h3>Audyt subagenta</h3><p>SubagentStop: zapisuje wynik i czas do <code>audit.log</code>.</p></div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const scenarios = {
+    read: {
+      cmd: "kubectl get pods -n prod",
+      verdict: { kind: "ok", title: "Wykonane", text: "Hook przepuścił, reguła allow zezwoliła bez pytania. Lista podów wraca do Claude." },
+      steps: [
+        { s: "ok",   t: "Claude prosi o Bash",            d: "Komenda: kubectl get pods -n prod." },
+        { s: "ok",   t: "Hook PreToolUse",                d: "Skrypt nie znalazł wzorca destrukcyjnego i kończy się exit 0." },
+        { s: "ok",   t: "Reguły allow / ask / deny",      d: "Komenda tylko do odczytu, dopasowana reguła allow." },
+        { s: "skip", t: "Zgoda człowieka",                d: "Niepotrzebna, bo reguła allow nie wymaga pytania." },
+        { s: "ok",   t: "Wykonanie (sandbox)",            d: "Komenda działa, wynik trafia do Claude." },
+        { s: "ok",   t: "Hook PostToolUse",               d: "Np. zapis do logu audytu. Nie blokuje wyniku." },
+        { s: "ok",   t: "Wynik wraca do Claude",          d: "Claude czyta listę podów i odpowiada." }
+      ]
+    },
+    block: {
+      cmd: "terraform destroy -auto-approve",
+      verdict: { kind: "block", title: "Zablokowane przez hook", text: "Stderr z powodem wraca do Claude. Claude nie uruchomi komendy i poprosi Cię o ręczne wykonanie albo zaproponuje bezpieczniejszy krok." },
+      steps: [
+        { s: "ok",    t: "Claude prosi o Bash",            d: "Komenda: terraform destroy -auto-approve." },
+        { s: "block", t: "Hook PreToolUse",                d: "Wzorzec terraform destroy. Skrypt kończy się exit 2." },
+        { s: "skip",  t: "Reguły allow / ask / deny",      d: "Nie są sprawdzane, bo hook już zablokował wywołanie." },
+        { s: "skip",  t: "Zgoda człowieka",                d: "Nie dochodzi do pytania." },
+        { s: "skip",  t: "Wykonanie (sandbox)",            d: "Komenda się nie uruchamia. Infrastruktura jest bezpieczna." },
+        { s: "skip",  t: "Hook PostToolUse",               d: "Nie ma wyniku do sprawdzenia." },
+        { s: "block", t: "Powód wraca do Claude",          d: "Claude dostaje: „Zablokowane: wymaga ręcznego wykonania.”" }
+      ]
+    },
+    ask: {
+      cmd: "rm -rf ./build",
+      verdict: { kind: "wait", title: "Czeka na Twoją zgodę", text: "Claude Code pokazuje pytanie. Bez Twojego kliknięcia komenda nie rusza. Po zgodzie przebieg dalej jak w scenariuszu odczytu." },
+      steps: [
+        { s: "ok",   t: "Claude prosi o Bash",            d: "Komenda: rm -rf ./build." },
+        { s: "ok",   t: "Hook PreToolUse",                d: "Brak dopasowania, exit 0. Hook nie zdejmuje reguł." },
+        { s: "wait", t: "Reguły allow / ask / deny",      d: "Dopasowana reguła ask: wymagane pytanie." },
+        { s: "wait", t: "Zgoda człowieka",                d: "Czeka na Twoją decyzję: tak albo nie." },
+        { s: "ok",   t: "Wykonanie (sandbox)",            d: "Po zgodzie komenda działa w sandboksie." },
+        { s: "ok",   t: "Hook PostToolUse",               d: "Zapis do logu audytu." },
+        { s: "ok",   t: "Wynik wraca do Claude",          d: "Claude widzi, że katalog został usunięty." }
+      ]
+    }
+  };
+
+  const flowEl = document.getElementById("flow");
+  const cmdEl = document.getElementById("cmdline");
+  const vTitle = document.getElementById("verdict-title");
+  const vText = document.getElementById("verdict-text");
+  const verdictEl = document.getElementById("verdict");
+  const stateLabel = { ok: "✓", block: "✕", wait: "?", skip: "–" };
+
+  function renderScenario(key) {
+    const sc = scenarios[key];
+    cmdEl.textContent = sc.cmd;
+    flowEl.innerHTML = "";
+    sc.steps.forEach((st, i) => {
+      const li = document.createElement("li");
+      li.className = st.s;
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.setAttribute("aria-hidden", "true");
+      dot.textContent = stateLabel[st.s] || String(i + 1);
+      const title = document.createElement("div");
+      title.className = "step-title";
+      title.textContent = (i + 1) + ". " + st.t;
+      const text = document.createElement("div");
+      text.className = "step-text";
+      text.textContent = st.d;
+      li.append(dot, title, text);
+      flowEl.appendChild(li);
+    });
+    verdictEl.className = "verdict " + sc.verdict.kind;
+    vTitle.textContent = sc.verdict.title;
+    vText.textContent = sc.verdict.text;
+    document.querySelectorAll("[data-scenario]").forEach(b => {
+      b.setAttribute("aria-pressed", String(b.dataset.scenario === key));
+    });
+  }
+
+  document.querySelectorAll("[data-scenario]").forEach(b => {
+    b.addEventListener("click", () => renderScenario(b.dataset.scenario));
+  });
+
+  const events = [
+    { name: "SessionStart", when: "Na starcie sesji.",
+      what: "Hook może wypisać kontekst: aktywny klaster, branch git, wersje narzędzi. Claude od razu wie, na czym pracuje." },
+    { name: "UserPromptSubmit", when: "Po wysłaniu promptu, przed przetworzeniem.",
+      what: "Może dodać kontekst albo zablokować prompt, np. z kluczem AWS. Sekret nie trafia do modelu." },
+    { name: "PreToolUse", when: "Przed każdym użyciem narzędzia.",
+      what: "Sprawdza wywołanie i może je zablokować (exit 2). To część schematu z sekcji 1." },
+    { name: "PostToolUse", when: "Po udanym użyciu narzędzia.",
+      what: "Uruchamia lint albo zapis do logu, np. po edycji pliku .tf. Błędy wracają do Claude, który je poprawia." },
+    { name: "Notification", when: "Gdy Claude czeka na Twoją decyzję.",
+      what: "Wysyła powiadomienie, np. na Slacka, żebyś mógł odejść od stanowiska, a sesja nie utknęła." },
+    { name: "Stop", when: "Gdy Claude kończy odpowiedź.",
+      what: "Uruchamia testy na zmienionych modułach. Uwaga: sprawdź pole stop_hook_active, bo inaczej hook może zapętlić Claude." },
+    { name: "SubagentStop", when: "Gdy kończy się subagent.",
+      what: "Zapisuje wynik subagenta, np. review IaC, z timestampem do logu." },
+    { name: "PreCompact", when: "Przed kompresją długiego kontekstu.",
+      what: "Zapisuje stan pracy do pliku, np. etap migracji, żeby nie zginął w streszczeniu." },
+    { name: "SessionEnd", when: "Na końcu sesji.",
+      what: "Sprząta pliki tymczasowe i kubeconfig wygenerowany na czas sesji." }
+  ];
+
+  const evWrap = document.getElementById("events");
+  const detail = document.getElementById("detail");
+
+  function renderEvent(i) {
+    const ev = events[i];
+    detail.innerHTML = "";
+    const h = document.createElement("h3");
+    h.textContent = ev.name;
+    const w = document.createElement("div");
+    w.className = "when";
+    w.textContent = ev.when;
+    const p = document.createElement("p");
+    p.textContent = ev.what;
+    detail.append(h, w, p);
+    evWrap.querySelectorAll("button").forEach((b, j) => {
+      b.setAttribute("aria-pressed", String(j === i));
+    });
+  }
+
+  events.forEach((ev, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = ev.name;
+    b.addEventListener("click", () => renderEvent(i));
+    evWrap.appendChild(b);
+  });
+
+  renderScenario("read");
+  renderEvent(2);
+})();
+</script>
+</body>
+</html>
