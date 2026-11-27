@@ -1,0 +1,19 @@
+# PodDisruptionBudget dla orders-api.
+# Przy dobrowolnych zakłóceniach (drain węzła, upgrade node group) co najmniej
+# 1 pod orders-api zostaje dostępny. orders-api ma 2 repliki (replicaCount: 2),
+# więc eviction usuwa najwyżej jeden pod naraz.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kantyna-orders-api
+  labels:
+    app.kubernetes.io/name: orders-api
+    app.kubernetes.io/component: orders-api
+    app.kubernetes.io/instance: kantyna
+    app.kubernetes.io/part-of: kantyna
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: orders-api
+      app.kubernetes.io/instance: kantyna

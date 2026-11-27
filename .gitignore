@@ -1,3 +1,8 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Terraform: lokalny stan i katalog roboczy
+tf/*.tfstate
+tf/*.tfstate.*
+.terraform/

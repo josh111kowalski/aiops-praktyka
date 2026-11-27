@@ -1,0 +1,24 @@
+# Test polityki lab04b/polityka.yaml (bez klastra):
+#   kyverno test lab04b/
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: obrazy-z-ecr-z-tagiem-test
+policies:
+  - polityka.yaml
+resources:
+  - test/dobry.yaml
+  - test/zly.yaml
+results:
+  - isValidatingPolicy: true
+    policy: obrazy-z-ecr-z-tagiem
+    kind: Deployment
+    resources:
+      - web-dobry
+    result: pass
+  - isValidatingPolicy: true
+    policy: obrazy-z-ecr-z-tagiem
+    kind: Deployment
+    resources:
+      - web-zly
+    result: fail

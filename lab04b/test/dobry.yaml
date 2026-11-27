@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-dobry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-dobry
+  template:
+    metadata:
+      labels:
+        app: web-dobry
+    spec:
+      containers:
+        - name: web
+          image: 574921529806.dkr.ecr.eu-central-1.amazonaws.com/kantyna/web:1.0.0

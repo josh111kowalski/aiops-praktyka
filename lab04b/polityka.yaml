@@ -1,0 +1,69 @@
+# Lab04b – obrazy tylko z firmowego ECR i z konkretnym tagiem.
+# Kyverno 1.19, ValidatingPolicy (policies.kyverno.io/v1) + CEL.
+# Tryb Deny: niezgodny Deployment/StatefulSet zostaje odrzucony przy CREATE/UPDATE.
+# Test lokalny (bez klastra):
+#   kyverno apply lab04b/polityka.yaml --resource <plik-z-manifestem>.yaml
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: obrazy-z-ecr-z-tagiem
+  annotations:
+    policies.kyverno.io/title: Obrazy tylko z ECR, z konkretnym tagiem
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Deploymenty i StatefulSety mogą używać wyłącznie obrazów z rejestru
+      574921529806.dkr.ecr.eu-central-1.amazonaws.com. Każdy obraz musi mieć
+      jawny tag inny niż :latest. Wyjątek: docker.io/library/postgres:17-alpine.
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments, statefulsets]
+  variables:
+    # Kontenery zwykłe + init z szablonu Poda.
+    - name: containers
+      expression: >-
+        object.spec.template.spec.containers +
+        object.spec.template.spec.?initContainers.orValue([])
+    - name: registry
+      expression: "'574921529806.dkr.ecr.eu-central-1.amazonaws.com/'"
+    # Wyjątki od reguły rejestru (dokładne dopasowanie pełnej nazwy obrazu).
+    - name: allowedImages
+      expression: "['docker.io/library/postgres:17-alpine']"
+    # Lista obrazów wszystkich kontenerów.
+    - name: images
+      expression: >-
+        variables.containers.map(c, c.image)
+  validations:
+    # 1. Dozwolony rejestr
+    - expression: >-
+        variables.images.all(i,
+          i.startsWith(variables.registry) || i in variables.allowedImages)
+      messageExpression: >-
+        'Niedozwolony rejestr obrazu w ' + object.kind + ' ' + object.metadata.name +
+        '. Dozwolony jest tylko 574921529806.dkr.ecr.eu-central-1.amazonaws.com' +
+        ' (wyjątek: ' + variables.allowedImages.join(', ') + '). Obrazy do poprawy: ' +
+        variables.images.filter(i,
+          !i.startsWith(variables.registry) && !(i in variables.allowedImages)).join(', ')
+
+    # 2. Obraz musi mieć tag (ostatni segment ścieżki zawiera ':tag')
+    - expression: >-
+        variables.images.all(i,
+          i.split('@')[0].matches('^([^/]+/)*[^/:]+:[^/:]+$'))
+      messageExpression: >-
+        'Obraz bez tagu w ' + object.kind + ' ' + object.metadata.name +
+        '. Podaj konkretny tag, np. repo:1.4.2. Obrazy do poprawy: ' +
+        variables.images.filter(i,
+          !i.split('@')[0].matches('^([^/]+/)*[^/:]+:[^/:]+$')).join(', ')
+
+    # 3. Zakaz tagu :latest
+    - expression: >-
+        variables.images.all(i, !i.split('@')[0].endsWith(':latest'))
+      messageExpression: >-
+        'Tag :latest jest zabroniony w ' + object.kind + ' ' + object.metadata.name +
+        '. Użyj konkretnej wersji obrazu. Obrazy do poprawy: ' +
+        variables.images.filter(i, i.split('@')[0].endsWith(':latest')).join(', ')

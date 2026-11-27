@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-zly
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-zly
+  template:
+    metadata:
+      labels:
+        app: web-zly
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27
