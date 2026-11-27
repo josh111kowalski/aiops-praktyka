@@ -98,6 +98,10 @@ ordersApi:
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
+  # psycopg pool per pod (DB_POOL_MIN / DB_POOL_MAX). replicas * max must stay below postgres max_connections.
+  dbPool:
+    min: 1
+    max: 10
   # Extra environment variables (list of EnvVar).
   env: []
   podSecurityContext: {}
@@ -273,7 +277,7 @@ metrics:
       release: kube-prometheus-stack
 
 prometheusRule:
-  enabled: false
+  enabled: true
   labels:
     release: kube-prometheus-stack
-  runbookBaseUrl: https://github.com/aiops-szkolenie/kantyna/blob/main/runbooks
+  runbookBaseUrl: https://github.com/dawid-marniok/aiops-praktyka/blob/main/app/runbooks

@@ -61,6 +61,10 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: {{ printf "postgresql://$(DB_USER):$(DB_PASSWORD)@%s:%d/%s" (include "kantyna.componentName" (dict "ctx" $ "component" "postgres")) (int .Values.postgres.service.port) .Values.postgres.database | quote }}
+            - name: DB_POOL_MIN
+              value: {{ $svc.dbPool.min | quote }}
+            - name: DB_POOL_MAX
+              value: {{ $svc.dbPool.max | quote }}
             {{- with $svc.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
