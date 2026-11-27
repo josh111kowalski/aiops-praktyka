@@ -73,7 +73,7 @@ kyverno apply lab04b/polityka.yaml --cluster --namespace <login>
 Coś się nie zgadza. Ustal sam, który zasób i dlaczego:
 
 ```bash
-kubectl get deploy,statefulset -o custom-columns=NAZWA:.metadata.name,OBRAZ:.spec.template.spec.containers[*].image
+kubectl get deploy,statefulset -o custom-columns='NAZWA:.metadata.name,OBRAZ:.spec.template.spec.containers[*].image'
 ```
 
 To jest prawdziwa decyzja, którą podejmuje zespół przed włączeniem polityki. Wybierz jedną drogę i zapisz uzasadnienie w `lab04b/notatki.md`:
@@ -90,6 +90,8 @@ Jeśli wybierasz B: poproś agenta o wyjątek i sprawdź, czy nie jest za szerok
 kyverno apply lab04b/polityka.yaml --cluster --namespace <login>
 kyverno apply lab04b/polityka.yaml --resource lab04b/test/zly-postgres.yaml
 ```
+
+Po każdej zmianie polityki patrz na pierwszą linię wyniku. `Applying 0 policy rule(s)` i `pass: 0, fail: 0` nie oznaczają sukcesu, tylko politykę, której Kyverno nie umiał wczytać i po cichu pominął. Zobaczysz to po prostu jako „wszystko przeszło”.
 
 ✅ Wiesz, który zasób łamie politykę i dlaczego. Decyzja z uzasadnieniem jest w `lab04b/notatki.md`. Przy drodze B audyt daje `fail: 0`, a `zly-postgres.yaml` jest odrzucany.
 
@@ -143,5 +145,7 @@ Zapisz w `lab04b/notatki.md`:
 | `kyverno apply` z `--cluster`: błąd uprawnień albo timeout | `kubectl get pods` działa? Jeśli nie, zgłoś prowadzącemu swój adres IP |
 | `kyverno apply` na pliku z `kubectl get … -o yaml` kończy się stack trace'em | CLI nie czyta obiektu `List`. Użyj `--cluster` albo zapisz zasoby jako osobne dokumenty YAML |
 | `kyverno test`: `no policies found` albo `resource not found` | ścieżki w `kyverno-test.yaml` są względem katalogu `lab04b/`, nie korzenia repo |
+| `Applying 0 policy rule(s)`, `pass: 0, fail: 0` | polityka jest niepoprawna i `kyverno apply` ją pomija bez błędu. Przyczynę pokaże `kyverno test lab04b/` (np. `unknown field`). Wklej ją agentowi |
+| `zsh: no matches found` przy `kubectl get … custom-columns=…[*]…` | weź cały argument `custom-columns` w apostrofy |
 | `kyverno apply` pokazuje `error: 1` zamiast `fail: 1` | wyrażenie CEL wywróciło się na tym obrazie (np. `image(...)` albo `messageExpression`). To nie jest odrzucenie z komunikatem. Wklej wynik agentowi i poproś o poprawkę |
 | AI dało `kind: ClusterPolicy` | działa w 1.19, ale jest przestarzałe. Poproś o `ValidatingPolicy` i podaj wersję |

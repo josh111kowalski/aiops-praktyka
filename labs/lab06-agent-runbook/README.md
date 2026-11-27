@@ -40,6 +40,14 @@ kubectl auth can-i --list --as=system:serviceaccount:$(kubectl config view --min
 
 Kantyna jest zdrowa, więc alert jest fałszywy. Zobacz, co agent zrobi bez instrukcji, a co z runbookiem.
 
+Runbook to `app/runbooks/KantynaHighErrorRate.md`, ten sam, który czyta dyżurny. Agent wybiera go po `alertname` z alertu i dokleja całą treść do promptu. Zanim uruchomisz drugą komendę, przejrzyj sekcje Diagnosis i Remediation:
+
+```bash
+cat ../../app/runbooks/KantynaHighErrorRate.md
+```
+
+Pierwsza linia wyjścia agenta pokazuje, co dostał model: `runbook: KantynaHighErrorRate.md` albo `runbook: nie`.
+
 ```bash
 python3 agent.py alerts/high-error-rate.json --bez-runbooka
 python3 agent.py alerts/high-error-rate.json

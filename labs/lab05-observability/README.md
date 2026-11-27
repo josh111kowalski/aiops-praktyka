@@ -12,6 +12,29 @@ Pracujesz na namespace **`demo`**: Kantyna pod stałym ruchem, z historią z kil
 - Claude Code
 - `gcx` albo `uv` (dla mcp-grafana), instalacja w kroku 1. `uv`: macOS `brew install uv`, Linux / WSL `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
+## 0. Najpierw sam, bez podłączenia (15 min)
+
+Zanim podłączysz asystenta do Grafany, zrób to samo „po staremu”. Zaloguj się do Grafany i spróbuj odpowiedzieć na trzy pytania o Kantynę w namespace `demo`:
+
+1. Ile żądań na sekundę obsługuje teraz `orders-api`, w podziale na endpointy?
+2. Czy w ostatniej godzinie były odpowiedzi 5xx?
+3. Zbuduj dashboard z jednym panelem, który pokazuje jedną z tych liczb. Zapisz go w folderze `<login>` jako `<login> — ręcznie`.
+
+Możesz pytać Claude (claude.ai albo Claude Code), ale **bez** `gcx` i MCP: asystent nie widzi Twojej Grafany, więc to Ty przepisujesz nazwy metryk, wklejasz zapytania w **Explore** i opowiadasz mu, co wyszło.
+
+Przydatne miejsca: **Explore** (źródło Prometheus, przycisk **Metrics browser**), **Dashboards → New → Add visualization**.
+
+Po 15 minutach przerwij, nawet jeśli nie skończyłeś, i zanotuj w `labs/lab05-observability/momenty.md`:
+
+```text
+## Krok 0 (bez podłączenia)
+ile zdążyłem: <np. 2 z 3>
+co zajęło najwięcej czasu: <np. szukanie nazwy metryki, etykieta endpointu>
+ile razy kopiowałem coś między Claude a Grafaną: <liczba>
+```
+
+✅ Masz notatkę z kroku 0. Do tych liczb wrócisz po kroku 4.
+
 ## 1. Podłącz Grafanę do Claude Code
 
 Dzięki temu asystent sam wykonuje zapytania w Grafanie i widzi wyniki. Wybierz jedną drogę (porównanie: `docs/09-grafana-elastic-ai/mcp-grafana-vs-gcx.md`).
@@ -85,6 +108,14 @@ Zapisz go w folderze `<login>`. Każdy panel ma mieć tytuł, jednostkę (req/s,
 
 ✅ Dashboard zapisany w Twoim folderze, wszystkie panele pokazują dane.
 
+**Porównaj z krokiem 0.** Zadaj asystentowi z podłączoną Grafaną te same trzy pytania z kroku 0 i zmierz czas. Dopisz do `momenty.md`:
+
+```text
+## Krok 0 z podłączeniem
+czas: <min>  |  co asystent zrobił sam, a co wcześniej robiłeś Ty: <...>
+gdzie się pomylił: <np. zła etykieta, UTC zamiast czasu polskiego, albo „nigdzie”>
+```
+
 ## 5. Dla chętnych
 
 - Poproś asystenta o regułę alertu dla jednego panelu. Zapytaj, skąd wziął próg, i porównaj go z danymi z ostatnich 4 dni.
@@ -93,6 +124,7 @@ Zapisz go w folderze `<login>`. Każdy panel ma mieć tytuł, jednostkę (req/s,
 
 ## SUKCES
 
+- [ ] notatka z kroku 0 i porównanie po kroku 4 w `momenty.md`
 - [ ] co najmniej 3 zapytania z kroku 2 sprawdzone w Explore
 - [ ] w `momenty.md` co najmniej 3 momenty: godzina (czas polski), co widać, zapytanie
 - [ ] dashboard z co najmniej 3 działającymi panelami w folderze `<login>`
