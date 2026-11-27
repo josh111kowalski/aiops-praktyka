@@ -61,10 +61,17 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: {{ printf "postgresql://$(DB_USER):$(DB_PASSWORD)@%s:%d/%s" (include "kantyna.componentName" (dict "ctx" $ "component" "postgres")) (int .Values.postgres.service.port) .Values.postgres.database | quote }}
+            {{- /* dbPool may be missing with `helm upgrade --reuse-values` on an older release; app defaults apply then */}}
+            {{- with $svc.dbPool }}
+            {{- if hasKey . "min" }}
             - name: DB_POOL_MIN
-              value: {{ $svc.dbPool.min | quote }}
+              value: {{ .min | quote }}
+            {{- end }}
+            {{- if hasKey . "max" }}
             - name: DB_POOL_MAX
-              value: {{ $svc.dbPool.max | quote }}
+              value: {{ .max | quote }}
+            {{- end }}
+            {{- end }}
             {{- with $svc.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
