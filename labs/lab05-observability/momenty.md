@@ -1,0 +1,3 @@
+wt 24.11 13:00–15:00 | kolejka workera urosła do ~10 900 wiadomości (normalnie 0–2, w porze obiadowej do ~25), do 15:30 zeszła do 0 | max(max_over_time(worker_queue_visible_messages{namespace="demo"}[30m]))
+wt 24.11 19:00–20:30 | pamięć orders-api 364 MB (normalnie ~78 MB), ~8 restartów orders-api, 5xx do 4,4% | max by (container) (container_memory_working_set_bytes{namespace="demo", container="orders-api"}) / 1024 / 1024
+śr 25.11 14:00–16:00 | 5xx w orders-api 21–26% (normalnie 0%), ~8 restartów orders-api | sum(rate(http_requests_total{namespace="demo", job="kantyna-orders-api", status=~"5.."}[30m])) / sum(rate(http_requests_total{namespace="demo", job="kantyna-orders-api"}[30m]))
