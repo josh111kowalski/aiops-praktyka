@@ -1,0 +1,10 @@
+# OCZEKIWANE|komenda    (BLOK = hook ma zatrzymać, OK = ma przepuścić)
+OK|kubectl get pods
+OK|kubectl describe deploy kantyna-orders-api
+OK|kubectl logs deploy/kantyna-worker --tail=50
+BLOK|kubectl delete configmap cel-hooka
+BLOK|kubectl -n demo delete pod kantyna-web-abc
+BLOK|kubectl rollout restart deploy/kantyna-orders-api
+BLOK|kubectl get secret kantyna-db -o yaml
+BLOK|kubectl get pods && kubectl delete pod x
+OK|kubectl logs deploy/kantyna-orders-api | grep -i delete
